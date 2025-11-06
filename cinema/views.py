@@ -1,13 +1,14 @@
 from datetime import datetime
 
 from django.db.models import F, Count
-from rest_framework import viewsets, permissions, status, mixins
+from rest_framework import viewsets, mixins
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.viewsets import GenericViewSet, ReadOnlyModelViewSet
 
 from cinema.models import Genre, Actor, CinemaHall, Movie, MovieSession, Order
+from cinema.permissions import IsAdminOrIfAuthenticatedReadOnly
 
 from cinema.serializers import (
     GenreSerializer,
@@ -22,25 +23,6 @@ from cinema.serializers import (
     OrderSerializer,
     OrderListSerializer,
 )
-
-
-class IsAdminOrIfAuthenticatedReadOnly(permissions.BasePermission):
-    def has_permission(self, request, view):
-        # If user is admin → full access
-        if request.user and request.user.is_staff:
-            return True
-
-        # If user is authenticated → read-only allowed
-        if request.user and request.user.is_authenticated:
-            return request.method in permissions.SAFE_METHODS
-
-        # Otherwise → no access
-        return False
-
-
-class IsAuthenticatedForOrders(permissions.BasePermission):
-    def has_permission(self, request, view):
-        return request.user and request.user.is_authenticated
 
 
 class GenreViewSet(
@@ -88,11 +70,9 @@ class MovieViewSet(
 
     @staticmethod
     def _params_to_ints(qs):
-        """Converts a list of string IDs to a list of integers"""
         return [int(str_id) for str_id in qs.split(",")]
 
     def get_queryset(self):
-        """Retrieve the movies with filters"""
         title = self.request.query_params.get("title")
         genres = self.request.query_params.get("genres")
         actors = self.request.query_params.get("actors")
